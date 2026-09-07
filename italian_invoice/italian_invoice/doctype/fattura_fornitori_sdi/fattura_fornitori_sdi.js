@@ -27,10 +27,10 @@ frappe.ui.form.on("Fattura Fornitori SDI", {
                     callback: (r) => {
                         const supplier_vat = r.message;
                         frappe.call({
-                            method: "openapi.api.eInvoice.purchase_invoice.get_or_create_supplier",
+                            method: "sdi_manual_import.api.get_or_create_supplier",
                             args: {
                                 supplier_vat_id: supplier_vat,
-                                fattura_fornitori_sdi: frm.doc.name
+                                invoice_data: frm.doc.dati_fattura
                             },
                             callback: (r) => {
                                 if (!r.message.success) {
@@ -86,7 +86,8 @@ function show_items_dialog(frm, supplier_data) {
                 }, 5);
             }
 
-            // --- Build dialog fields: split left/right layout ---
+            const default_account = supplier_data.custom_conto_di_costo_predefinito || undefined;
+
             const dialog_fields = [
                 {
                     fieldtype: 'HTML',
@@ -96,7 +97,75 @@ function show_items_dialog(frm, supplier_data) {
                         &nbsp;&nbsp;|&nbsp;&nbsp;
                         <strong>P.IVA:</strong> ${supplier_data.tax_id}
                     </div>`
-                }
+                },
+                { fieldtype: 'Section Break' },
+                {
+                    label: 'Conto di Costo per tutte le righe',
+                    fieldtype: 'Link',
+                    options: 'Account',
+                    fieldname: 'bulk_account',
+                    default: default_account,
+                    get_query: () => ({
+                        filters: { 'is_group': 0, 'company': frm.doc.company }
+                    })
+                },
+                { fieldtype: 'Column Break' },
+                {
+                    fieldtype: 'Button',
+                    label: 'Applica a tutte le righe',
+                    fieldname: 'apply_bulk_account',
+                    click: () => {
+                        const val = d.get_value('bulk_account');
+                        if (!val) {
+                            frappe.msgprint(__('Seleziona prima un Conto di Costo da applicare'));
+                            return;
+                        }
+                        invoice_lines.forEach((line, idx) => {
+                            d.set_value(`account_${idx}`, val);
+                        });
+                    }
+                },
+                { fieldtype: 'Section Break' },
+                {
+                    label: 'Item per tutte le righe',
+                    fieldtype: 'Link',
+                    options: 'Item',
+                    fieldname: 'bulk_item',
+                    only_select: true,
+                    get_query: () => ({
+                        query: 'italian_invoice.utilities.fatture_passive.get_items_by_supplier',
+                        filters: { 'default_supplier': supplier_data.name }
+                    })
+                },
+                { fieldtype: 'Column Break' },
+                {
+                    fieldtype: 'Button',
+                    label: 'Applica Item a tutte le righe',
+                    fieldname: 'apply_bulk_item',
+                    click: () => {
+                        const item_code = d.get_value('bulk_item');
+                        if (!item_code) {
+                            frappe.msgprint(__('Seleziona prima un Item da applicare'));
+                            return;
+                        }
+                        invoice_lines.forEach((line, idx) => {
+                            d.set_value(`item_${idx}`, item_code);
+                        });
+                        frappe.db.get_doc('Item', item_code).then(item => {
+                            if (item.item_defaults && item.item_defaults.length > 0) {
+                                const def = item.item_defaults.find(
+                                    dd => dd.company === frm.doc.company
+                                );
+                                if (def && def.expense_account) {
+                                    invoice_lines.forEach((line, idx) => {
+                                        d.set_value(`account_${idx}`, def.expense_account);
+                                    });
+                                }
+                            }
+                        });
+                    }
+                },
+                { fieldtype: 'Section Break' }
             ];
 
             invoice_lines.forEach((line, idx) => {
@@ -123,17 +192,13 @@ function show_items_dialog(frm, supplier_data) {
                     </div>
                 `;
 
-                // Section Break per ogni riga
                 dialog_fields.push({ fieldtype: 'Section Break' });
-                // Colonna sinistra: dati fattura (readonly)
                 dialog_fields.push({
                     fieldtype: 'HTML',
                     fieldname: `desc_${idx}`,
                     options: leftHtml
                 });
-                // Column Break
                 dialog_fields.push({ fieldtype: 'Column Break' });
-                // Colonna destra: campi di associazione
                 dialog_fields.push({
                     label: 'Item',
                     fieldtype: 'Link',
@@ -151,6 +216,7 @@ function show_items_dialog(frm, supplier_data) {
                     fieldtype: 'Link',
                     options: 'Account',
                     fieldname: `account_${idx}`,
+                    default: default_account,
                     reqd: isZeroValue ? 0 : 1,
                     get_query: () => ({
                         filters: { 'is_group': 0, 'company': frm.doc.company }
@@ -172,7 +238,6 @@ function show_items_dialog(frm, supplier_data) {
                 });
             });
 
-            // --- Create dialog ---
             let d = new frappe.ui.Dialog({
                 title: 'Associa Prodotti',
                 fields: dialog_fields,
@@ -195,7 +260,6 @@ function show_items_dialog(frm, supplier_data) {
                             tax_nature: line.natura
                         };
 
-                        // Raccogli associazioni da ricordare
                         if (values[`remember_${idx}`]) {
                             const codice = _get_codice_articolo(line);
                             remember_mappings.push({
@@ -206,9 +270,9 @@ function show_items_dialog(frm, supplier_data) {
                     });
 
                     frappe.call({
-                        method: "openapi.api.eInvoice.purchase_invoice.process_supplier_invoice",
+                        method: "sdi_manual_import.api.process_supplier_invoice_fixed",
                         args: {
-                            json_data_string: frm.doc.dati_fattura,
+                            invoice_data: frm.doc.dati_fattura,
                             fattura_fornitori_sdi: frm.doc.name,
                             item_mappings: item_mappings,
                             remember_mappings: remember_mappings
@@ -223,7 +287,6 @@ function show_items_dialog(frm, supplier_data) {
                 }
             });
 
-            // Auto-fill account when item is selected
             invoice_lines.forEach((line, idx) => {
                 d.fields_dict[`item_${idx}`].df.onchange = () => {
                     let item_code = d.get_value(`item_${idx}`);
@@ -242,7 +305,6 @@ function show_items_dialog(frm, supplier_data) {
                 };
             });
 
-            // Auto-match items
             frappe.call({
                 method: 'italian_invoice.utilities.fatture_passive.find_matching_items',
                 args: {
@@ -408,7 +470,6 @@ function show_po_pr_in_form(frm, purchase_orders, purchase_receipts, bill_no) {
     const $wrapper = frm.get_field('documenti_aperti').$wrapper;
     $wrapper.html(html);
 
-    // Event delegation: un solo handler, nessun leak globale
     $wrapper.off('click', '.btn-create-from-doc').on('click', '.btn-create-from-doc', function () {
         const $btn = $(this);
         frappe.call({
