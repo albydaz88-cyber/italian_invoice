@@ -14,7 +14,7 @@ frappe.ui.form.on("Fattura Fornitori SDI", {
         }
 
         frm.add_custom_button(__("Scarica PDF"), () => {
-            window.location.href = `/api/method/openapi.api.sdi.fatture.download?doctype=Fattura Fornitori SDI&docname=${frm.doc.name}&type=pdf`;
+            window.location.href = `/api/method/sdi_manual_import.api.download_pdf?docname=${frm.doc.name}`;
         });
 
         frm.get_field('documenti_aperti').$wrapper.html('');
