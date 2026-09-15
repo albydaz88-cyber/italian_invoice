@@ -64,7 +64,10 @@ frappe.ui.form.on("Purchase Invoice", {
   },
   custom_tipo_di_documento: (frm) => {
     if (["TD17", "TD18", "TD19"].includes(frm.doc.custom_tipo_di_documento)) {
-      frm.set_value("taxes_and_charges", "IVA acquisti CEE al 22%");
+      frappe.db.get_value("Company", frm.doc.company, "abbr").then((r) => {
+        const abbr = r.message.abbr;
+        frm.set_value("taxes_and_charges", `IVA acquisti CEE al 22% - ${abbr}`);
+      });
     } else {
       frm.set_value("taxes_and_charges", "");
     }
