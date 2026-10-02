@@ -680,7 +680,7 @@ def prepare_invoice_items(invoice_lines, item_mappings=None, company=None, is_re
 				"uom": uom,
 				"price_list_rate": rate,
 				"tax_rate": line.get("aliquota_iva", 0),
-				"tax_nature": line.get("natura"),
+				"custom_motivo_esenzione_iva": line.get("natura"),
 			}
 
 			items.append(item_dict)
@@ -695,7 +695,7 @@ def prepare_invoice_items(invoice_lines, item_mappings=None, company=None, is_re
 					"uom": get_default_uom(),
 					"price_list_rate": rate,
 					"tax_rate": line.get("aliquota_iva", 0),
-					"tax_nature": line.get("natura"),
+					"custom_motivo_esenzione_iva": line.get("natura"),
 				}
 			)
 
