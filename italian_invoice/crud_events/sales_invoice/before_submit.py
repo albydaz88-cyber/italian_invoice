@@ -14,8 +14,15 @@ def execute(doc, method=None):
 
 	Vale solo per le società italiane: la fattura elettronica (SDI) è un obbligo
 	italiano — le fatture di società estere (es. svizzere) non passano da SDI.
+
+	Non vale per i documenti esclusi da SDI (custom_escludi_da_sdi): è il caso dei
+	corrispettivi cumulativi di fine giornata, che non sono fatture elettroniche.
 	"""
 	if frappe.get_cached_value("Company", doc.company, "country") != "Italy":
+		return
+
+	# Corrispettivi cumulativi: non transitano da SDI, nessun controllo e-fattura.
+	if doc.get("custom_escludi_da_sdi"):
 		return
 
 	# Il Tipo di Documento (TD01, TD24, …) finisce nell'XML: obbligatorio al submit.
