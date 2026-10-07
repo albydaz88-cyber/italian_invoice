@@ -39,7 +39,7 @@ def create_default_document_types():
 		{
 			"codice": "TD16",
 			"descrizione": "Integrazione fattura reverse charge interno",
-			"tipologia": "Fattura",
+			"tipologia": "AutoFattura",
 		},
 		{
 			"codice": "TD17",
