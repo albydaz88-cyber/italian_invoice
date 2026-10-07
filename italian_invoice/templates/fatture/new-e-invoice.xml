@@ -191,7 +191,7 @@
                 {% else %}
                     <AliquotaIVA>{{ macros.format_float(aliquota_iva) }}</AliquotaIVA>
                 {% endif %}
-                {%- if item.custom_motivo_esenzione_iva %}
+                {%- if item.custom_motivo_esenzione_iva and doc.type_of_document not in ['TD16', 'TD17', 'TD18', 'TD19'] %}
                     <Natura>{{ item.custom_motivo_esenzione_iva }}</Natura>
                     {%- if item.custom_motivo_esenzione_iva in ['N3.5'] %}
                             <AltriDatiGestionali>
