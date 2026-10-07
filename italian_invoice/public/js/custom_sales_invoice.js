@@ -1,11 +1,25 @@
+// Serie assegnate in automatico dal sistema. Qualsiasi altra serie (es. DR/.YY.
+// dei corrispettivi) è una scelta esplicita dell'utente: in quel caso non si
+// toccano né la serie né il Tipo di Documento (i corrispettivi non hanno un TD).
+const SERIE_AUTOMATICHE = ["SINV/.YY./", "PAINV/.YY./", "NCINV/.YY./"];
+
+const isSerieAutomatica = (frm) =>
+  !frm.doc.naming_series || SERIE_AUTOMATICHE.includes(frm.doc.naming_series);
+
 const getCustomerTipoFatturaElettronica = (frm) => {
   // Non modificare documenti già submitted
   if (frm.doc.docstatus !== 0) {
     return true;
   }
+
+  // false = serie scelta a mano (es. DR corrispettivi)
+  const auto = isSerieAutomatica(frm);
+
   if (frm.doc.is_return) {
-    frm.set_value("custom_tipo_di_documento", "TD04");
-    frm.set_value("naming_series", "NCINV/.YY./");
+    if (auto) {
+      frm.set_value("custom_tipo_di_documento", "TD04");
+      frm.set_value("naming_series", "NCINV/.YY./");
+    }
     return true;
   }
   if (frm.doc.customer !== undefined) {
@@ -16,10 +30,11 @@ const getCustomerTipoFatturaElettronica = (frm) => {
           ['custom_tipo_fattura_elettronica', 'custom_vat_collectability', 'custom_codice_univoco', 'is_public_administration', 'tax_id', 'fiscal_code'],
         )
         .then((r) => {
-          // Il default del tipo documento si imposta solo se mancante; il ramo PA
+          // Il default del tipo documento si imposta solo se mancante e solo per le
+          // serie "fattura": i corrispettivi non hanno un TD. Il ramo PA
           // (esigibilità + naming series) deve girare comunque. La garanzia resta
           // server-side (before_naming + validate), questo è solo feedback Desk.
-          if (!frm.doc.custom_tipo_di_documento) {
+          if (auto && !frm.doc.custom_tipo_di_documento) {
             if (r.message.custom_tipo_fattura_elettronica) {
               frm.set_value("custom_tipo_di_documento", r.message.custom_tipo_fattura_elettronica);
             } else {
@@ -32,11 +47,11 @@ const getCustomerTipoFatturaElettronica = (frm) => {
 
           if (r.message.is_public_administration) {
             frm.set_value("vat_collectability", 'S-Scissione dei Pagamenti');
-            if (frm.doc.is_return == 0 && frm.doc.__islocal) {
+            if (auto && frm.doc.is_return == 0 && frm.doc.__islocal) {
               frm.set_value("naming_series", "PAINV/.YY./")
             }
           } else {
-            if (frm.doc.is_return == 0 && frm.doc.__islocal) {
+            if (auto && frm.doc.is_return == 0 && frm.doc.__islocal) {
               frm.set_value("naming_series", "SINV/.YY./")
             }
           }
@@ -141,7 +156,18 @@ frappe.ui.form.on("Sales Invoice", {
       })
     }
   },
+  naming_series: (frm) => {
+    // Se passo a una serie non automatica (es. DR corrispettivi) tolgo il Tipo di
+    // Documento eventualmente già precompilato dalla scelta del customer.
+    if (frm.doc.docstatus === 0 && !isSerieAutomatica(frm)) {
+      frm.set_value("custom_tipo_di_documento", null);
+    }
+  },
   is_return: (frm) => {
+    // Con una serie scelta a mano (es. DR) non si toccano serie e TD.
+    if (!isSerieAutomatica(frm)) {
+      return;
+    }
     if (frm.doc.is_return) {
       frm.set_value("custom_tipo_di_documento", "TD04");
       frm.set_value("naming_series", "NCINV/.YY./");
