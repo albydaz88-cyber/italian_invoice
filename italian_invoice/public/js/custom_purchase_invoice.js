@@ -63,16 +63,27 @@ frappe.ui.form.on("Purchase Invoice", {
     }
   },
   custom_tipo_di_documento: (frm) => {
-    if (["TD17", "TD18", "TD19"].includes(frm.doc.custom_tipo_di_documento)) {
-      frappe.db.get_value("Company", frm.doc.company, "abbr").then((r) => {
-        const abbr = r.message.abbr;
-        frm.set_value("taxes_and_charges", `IVA acquisti CEE al 22% - ${abbr}`);
-      });
-    } else {
-      frm.set_value("taxes_and_charges", "");
-    }
-    frm.refresh_field("taxes_and_charges");
-  },
+  const TEMPLATE_AUTOFATTURA = {
+    TD16: "IVA acquisti RC interno 22%",
+    TD17: "IVA acquisti CEE al 22%",
+    TD18: "IVA acquisti CEE al 22%",
+    TD19: "IVA acquisti CEE al 22%",
+  };
+
+  const base = TEMPLATE_AUTOFATTURA[frm.doc.custom_tipo_di_documento];
+
+  if (base && frm.doc.company) {
+    frappe.db.get_value("Company", frm.doc.company, "abbr").then((r) => {
+      if (r.message && r.message.abbr) {
+        frm.set_value("taxes_and_charges", `${base} - ${r.message.abbr}`);
+      }
+    });
+  } else {
+    frm.set_value("taxes_and_charges", "");
+  }
+
+  frm.refresh_field("taxes_and_charges");
+},
   validate: (frm) => {
     updateTaxRate(frm);
   },
