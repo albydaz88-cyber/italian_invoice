@@ -40,7 +40,7 @@ class FatturaFornitoriSDI(Document):
 		# Autofatture non devono essere segnate come "Da importare"
 		if self.is_new() and self.dati_fattura:
 			tipo_documento = self._get_tipo_documento()
-			if tipo_documento in ["TD17", "TD18", "TD19", "TD20"]:
+			if tipo_documento in ["TD16", "TD17", "TD18", "TD19", "TD20"]:
 				self.stato = "Importata"
 
 	def _get_tipo_documento(self):

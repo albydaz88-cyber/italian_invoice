@@ -1112,7 +1112,7 @@ def identify_company_from_webhook_data(data):
 		pass
 
 	# Per autofatture (TD17-TD19) o quando il cedente è estero, cerchiamo in modi diversi
-	is_autofattura = tipo_documento in ["TD17", "TD18", "TD19", "TD20"]
+	is_autofattura = tipo_documento in ["TD16", "TD17", "TD18", "TD19", "TD20"]
 
 	# Controlla se il cedente è estero
 	cedente_paese = None
